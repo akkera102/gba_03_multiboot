@@ -54,6 +54,13 @@ int main(int argc, char* argv[])
 	}
 
 	uint32_t fsize = stbuf.st_size;
+
+	if(fsize > 0x40000)
+	{
+		fprintf(stderr, "File size Error Max 256KB\n");
+		exit(1);
+	}
+
 	close(fd);
 
 
@@ -122,7 +129,7 @@ int main(int argc, char* argv[])
 	}
 
 
-    uint32_t crcA, crcB, crcC, seed;
+	uint32_t crcA, crcB, crcC, seed;
 
 	crcA = (token >> 16) & 0xFF;
 	seed = 0xFFFF00D1 | (crcA << 8);
@@ -188,6 +195,7 @@ int main(int argc, char* argv[])
 
 	// -----------------------------------------------------
 	printf("Waiting for checksum...\n");
+
 	Spi32(0x0065);
 
 	do
