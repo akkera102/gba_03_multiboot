@@ -18,10 +18,10 @@ uint32_t Spi32(uint32_t val)
 		u_char uc[4];
 	} x;
 
-	x.u32 = __bswap_32(val);
+	x.u32 = bswap_32(val);
 	wiringPiSPIDataRW(0, x.uc, 4);
 
-	return __bswap_32(x.u32);
+	return bswap_32(x.u32);
 }
 //---------------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	wiringPiSPISetupMode(0, 100000, 3);
+	wiringPiSPISetupMode(0, 1000000, 3);
 
 
 	// -----------------------------------------------------
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 
 
 	// -----------------------------------------------------
-    printf("Getting encryption and crc seeds.\n");
+	printf("Getting encryption and crc seeds.\n");
 
 	Spi32(0x6202);
 	Spi32(0x63D1);
