@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 	}
 
 	struct timespec ts = {0, 10 * 1000000};		// wait 10ms
-	int spi = spiOpen(0, 100000, 3);
+	int spi = spiOpen(0, 50000, 3);
 
 	if(spi < 0)
 	{
