@@ -1,27 +1,35 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <byteswap.h>
-#include <wiringPi.h>
-#include <wiringPiSPI.h>
+#include <time.h>
+#include <pigpio.h>
 
+// gcc -Wall -o multiboot multiboot.c -lpigpio
 
 //---------------------------------------------------------------------------
-uint32_t Spi32(uint32_t val)
+uint32_t Spi32(int spi, uint32_t val)
 {
-	union {
-		uint32_t u32;
-		u_char uc[4];
-	} x;
+	char send[4];
+	char recv[4];
 
-	x.u32 = bswap_32(val);
-	wiringPiSPIDataRW(0, x.uc, 4);
+	send[3] = (val & 0x000000ff);
+	send[2] = (val & 0x0000ff00) >>  8;
+	send[1] = (val & 0x00ff0000) >> 16;
+	send[0] = (val & 0xff000000) >> 24;
 
-	return bswap_32(x.u32);
+	spiXfer(spi, send, recv, 4);
+
+	uint32_t ret = 0;
+
+	ret += ((unsigned char)recv[0]) << 24;
+	ret += ((unsigned char)recv[1]) << 16;
+	ret += ((unsigned char)recv[2]) <<  8;
+	ret += ((unsigned char)recv[3]);
+
+	return ret;
 }
 //---------------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -32,8 +40,19 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	wiringPiSPISetupMode(0, 1000000, 3);
+	// -----------------------------------------------------
+	if(gpioInitialise() < 0)
+	{
+		exit(1);
+	}
 
+	struct timespec ts = {0, 10 * 1000000};		// wait 10ms
+	int spi = spiOpen(0, 100000, 3);
+
+	if(spi < 0)
+	{
+		exit(1);
+	}
 
 	// -----------------------------------------------------
 	// get filesize
@@ -93,8 +112,8 @@ int main(int argc, char* argv[])
 
 	do
 	{
-		recv = Spi32(0x6202) >> 16;
-		usleep(10000);
+		recv = Spi32(spi, 0x6202) >> 16;
+		nanosleep(&ts, NULL);
 
 	} while(recv != 0x7202);
 
@@ -102,25 +121,25 @@ int main(int argc, char* argv[])
 	// -----------------------------------------------------
 	printf("Sending header.\n");
 
-	Spi32(0x6102);
+	Spi32(spi, 0x6102);
 
 	uint16_t* fdata16 = (uint16_t*)fdata;
 
 	for(uint32_t i=0; i<0xC0; i+=2)
 	{
-		Spi32(fdata16[i / 2]);
+		Spi32(spi, fdata16[i / 2]);
 	}
 
-	Spi32(0x6200);
+	Spi32(spi, 0x6200);
 
 
 	// -----------------------------------------------------
 	printf("Getting encryption and crc seeds.\n");
 
-	Spi32(0x6202);
-	Spi32(0x63D1);
+	Spi32(spi, 0x6202);
+	Spi32(spi, 0x63D1);
 
-	uint32_t token = Spi32(0x63D1);
+	uint32_t token = Spi32(spi, 0x63D1);
 
 	if((token >> 24) != 0x73)
 	{
@@ -135,12 +154,12 @@ int main(int argc, char* argv[])
 	seed = 0xFFFF00D1 | (crcA << 8);
 	crcA = (crcA + 0xF) & 0xFF;
 
-	Spi32(0x6400 | crcA);
+	Spi32(spi, 0x6400 | crcA);
 
 	fsize +=  0xF;
 	fsize &= ~0xF;
 
-	token = Spi32((fsize - 0x190) / 4);
+	token = Spi32(spi, (fsize - 0x190) / 4);
 	crcB  = (token >> 16) & 0xFF;
 	crcC  = 0xC387;
 
@@ -172,7 +191,7 @@ int main(int argc, char* argv[])
 		dat = seed ^ dat ^ (0xFE000000 - i) ^ 0x43202F2F;
 
 		// send
-		uint32_t chk = Spi32(dat) >> 16;
+		uint32_t chk = Spi32(spi, dat) >> 16;
 
 		if(chk != (i & 0xFFFF))
 		{
@@ -196,17 +215,17 @@ int main(int argc, char* argv[])
 	// -----------------------------------------------------
 	printf("Waiting for checksum...\n");
 
-	Spi32(0x0065);
+	Spi32(spi, 0x0065);
 
 	do
 	{
-		recv = Spi32(0x0065) >> 16;
-		usleep(10000);
+		recv = Spi32(spi, 0x0065) >> 16;
+		nanosleep(&ts, NULL);
 
 	} while(recv != 0x0075);
 
-	Spi32(0x0066);
-	uint32_t crcGBA = Spi32(crcC & 0xFFFF) >> 16;
+	Spi32(spi, 0x0066);
+	uint32_t crcGBA = Spi32(spi, crcC & 0xFFFF) >> 16;
 
 	printf("Gba: %x, Cal: %x\n", crcGBA, crcC);
 	printf("Done.\n");

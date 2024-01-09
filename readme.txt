@@ -6,8 +6,8 @@ and forked. https://github.com/MerryMage/gba-multiboot
 
 
 ## command log
-$ gcc multiboot.c -lwiringPi -o multiboot
-$ ./multiboot 2048.gba
+$ gcc -Wall -o multiboot multiboot.c -lpigpio
+$ sudo ./multiboot 2048.gba
 
 Waiting for GBA...
 Sending header.
