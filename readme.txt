@@ -19,6 +19,11 @@ Gba: 7113, Cal: 7113
 Done.
 
 
+## command log(old)
+$ gcc -o multiboot multiboot.c -lwiringPi
+$ sudo ./multiboot 2048.gba
+
+
 ## Author
 MerryMage Aug  4, 2017(teensy version)
 akkera102 Sep 17, 2018(raspberry pi version)
